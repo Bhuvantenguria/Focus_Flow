@@ -11,21 +11,35 @@ const Leaderboard = () => {
   const [totalPages, setTotalPages] = useState(1);
   const usersPerPage = 25;
   const [userRank, setUserRank] = useState(null);
+  const [loading, setLoading] = useState(false); // Loader state for leaderboard
+  const [loadingRank, setLoadingRank] = useState(false); // Loader state for rank
 
   useEffect(() => {
+    setLoading(true); // Start leaderboard loader
     axios
       .get(`https://focus-59nh.vercel.app/api/leaderboard/weekly?page=${currentPage}&limit=${usersPerPage}`)
       .then((response) => {
         setLeaderboardData(response.data.users);
         setTotalPages(response.data.totalPages);
+        setLoading(false); // Stop leaderboard loader
       })
-      .catch((error) => console.error("Error fetching leaderboard data:", error));
+      .catch((error) => {
+        console.error("Error fetching leaderboard data:", error);
+        setLoading(false); // Stop leaderboard loader on error
+      });
 
     if (auth?.user?._id) {
+      setLoadingRank(true); // Start rank loader
       axios
         .get(`https://focus-59nh.vercel.app/leaderboard/weekly/${auth.user._id}`)
-        .then((response) => setUserRank(response.data.rank))
-        .catch((error) => console.error("Error fetching user rank:", error));
+        .then((response) => {
+          setUserRank(response.data.rank);
+          setLoadingRank(false); // Stop rank loader
+        })
+        .catch((error) => {
+          console.error("Error fetching user rank:", error);
+          setLoadingRank(false); // Stop rank loader on error
+        });
     }
   }, [currentPage, auth]);
 
@@ -50,10 +64,18 @@ const Leaderboard = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        {auth && userRank !== null ? (
-          <div className="mb-4 text-center">
-            <p className="text-lg md:text-xl font-semibold text-purple-700">Your Rank: {userRank}</p>
-          </div>
+        {auth ? (
+          loadingRank ? (
+            <div className="flex justify-center items-center py-4">
+              <div className="w-6 h-6 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : userRank !== null ? (
+            <div className="mb-4 text-center">
+              <p className="text-lg md:text-xl font-semibold text-purple-700">Your Rank: {userRank}</p>
+            </div>
+          ) : (
+            <div className="mb-4 text-center text-md md:text-lg font-medium text-red-600">Login to see your rank.</div>
+          )
         ) : (
           <div className="mb-4 text-center text-md md:text-lg font-medium text-red-600">Login to see your rank.</div>
         )}
@@ -63,61 +85,70 @@ const Leaderboard = () => {
           Weekly Leaderboard
         </h2>
 
-        {/* Table */}
-        <div className="overflow-x-auto rounded-lg shadow-md">
-          <table className="w-full min-w-[320px] md:min-w-full bg-gray-50 rounded-lg">
-            <thead>
-              <tr className="bg-purple-700 text-white text-sm md:text-base">
-                <th className="px-4 md:px-6 py-3 text-left">Rank</th>
-                <th className="px-4 md:px-6 py-3 text-left">Username</th>
-                <th className="px-4 md:px-6 py-3 text-left">Focus Time</th>
-              </tr>
-            </thead>
-            <tbody className="text-gray-700 text-sm md:text-base">
-              {leaderboardData.map((user) => (
-                <motion.tr
-                  key={user.userId}
-                  className={`hover:bg-purple-100 transition-colors duration-300 ${
-                    auth?.user?._id === user.userId ? "bg-red-500 text-white font-bold" : "bg-white"
-                  }`}
-                  whileHover={{ scale: 1.02 }}
-                >
-                  <td className="px-4 md:px-6 py-3 flex items-center gap-2 font-semibold">
-                    {getTrophy(user.rank)}
-                    {user.rank}
-                  </td>
-                  <td className="px-4 md:px-6 py-3">{user.username}</td>
-                  <td className="px-4 md:px-6 py-3 font-bold">{formatTime(user.totalFocusMinutes)}</td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {/* Loader for leaderboard */}
+        {loading ? (
+          <div className="flex justify-center items-center py-10">
+            <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <>
+            {/* Table */}
+            <div className="overflow-x-auto rounded-lg shadow-md">
+              <table className="w-full min-w-[320px] md:min-w-full bg-gray-50 rounded-lg">
+                <thead>
+                  <tr className="bg-purple-700 text-white text-sm md:text-base">
+                    <th className="px-4 md:px-6 py-3 text-left">Rank</th>
+                    <th className="px-4 md:px-6 py-3 text-left">Username</th>
+                    <th className="px-4 md:px-6 py-3 text-left">Focus Time</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-700 text-sm md:text-base">
+                  {leaderboardData.map((user) => (
+                    <motion.tr
+                      key={user.userId}
+                      className={`hover:bg-purple-100 transition-colors duration-300 ${
+                        auth?.user?._id === user.userId ? "bg-red-500 text-white font-bold" : "bg-white"
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      <td className="px-4 md:px-6 py-3 flex items-center gap-2 font-semibold">
+                        {getTrophy(user.rank)}
+                        {user.rank}
+                      </td>
+                      <td className="px-4 md:px-6 py-3">{user.username}</td>
+                      <td className="px-4 md:px-6 py-3 font-bold">{formatTime(user.totalFocusMinutes)}</td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-        {/* Pagination */}
-        <div className="mt-5 flex justify-center items-center gap-3 md:gap-4">
-          <button
-            className={`px-3 py-2 md:px-4 md:py-2 rounded-lg text-white font-semibold transition ${
-              currentPage > 1 ? "bg-purple-600 hover:bg-purple-700" : "bg-gray-400 cursor-not-allowed"
-            }`}
-            onClick={() => setCurrentPage(currentPage - 1)}
-            disabled={currentPage === 1}
-          >
-            Previous
-          </button>
-          <span className="text-sm md:text-lg font-semibold">
-            Page {currentPage} of {totalPages}
-          </span>
-          <button
-            className={`px-3 py-2 md:px-4 md:py-2 rounded-lg text-white font-semibold transition ${
-              currentPage < totalPages ? "bg-purple-600 hover:bg-purple-700" : "bg-gray-400 cursor-not-allowed"
-            }`}
-            onClick={() => setCurrentPage(currentPage + 1)}
-            disabled={currentPage === totalPages}
-          >
-            Next
-          </button>
-        </div>
+            {/* Pagination */}
+            <div className="mt-5 flex justify-center items-center gap-3 md:gap-4">
+              <button
+                className={`px-3 py-2 md:px-4 md:py-2 rounded-lg text-white font-semibold transition ${
+                  currentPage > 1 ? "bg-purple-600 hover:bg-purple-700" : "bg-gray-400 cursor-not-allowed"
+                }`}
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </button>
+              <span className="text-sm md:text-lg font-semibold">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                className={`px-3 py-2 md:px-4 md:py-2 rounded-lg text-white font-semibold transition ${
+                  currentPage < totalPages ? "bg-purple-600 hover:bg-purple-700" : "bg-gray-400 cursor-not-allowed"
+                }`}
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </button>
+            </div>
+          </>
+        )}
       </motion.div>
     </div>
   );
